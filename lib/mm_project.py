@@ -45,7 +45,7 @@ class MavensMateProject(object):
         self.subscription       = params.get('subscription', [])
 
         if 'location' in params and os.path.exists(params['location']): #=> existing project on the disk
-            
+
             self.location                   = params.get('location', None)
             self.settings                   = self.__get_settings()
             self.project_name               = self.settings.get('project_name', os.path.basename(self.location))
@@ -61,7 +61,7 @@ class MavensMateProject(object):
             if self.ui == False and self.defer_connection == False:
                 self.sfdc_client        = MavensMateClient(credentials=self.get_creds())
 
-                if self.sfdc_session != None and 'sid' in self.sfdc_session and self.sfdc_client != None and (self.sfdc_session['sid'] != self.sfdc_client.sid): 
+                if self.sfdc_session != None and 'sid' in self.sfdc_session and self.sfdc_client != None and (self.sfdc_session['sid'] != self.sfdc_client.sid):
                     config.logger.debug('storing updated session information locally')
                     self.__set_sfdc_session()
                 elif self.sfdc_session == None:
@@ -82,22 +82,24 @@ class MavensMateProject(object):
         try:
             if os.path.isdir(os.path.join(config.connection.workspace,self.project_name)) and action == 'new':
                 return mm_util.generate_error_response("A project with this name already exists in your workspace.")
-            
+
             if action == 'existing':
                 existing_parent_directory = os.path.dirname(self.directory)
                 existing_is_in_workspace = True
                 if existing_parent_directory != config.connection.workspace:
                     existing_is_in_workspace = False
                 if os.path.isdir(os.path.join(config.connection.workspace,self.project_name)) and existing_is_in_workspace == False and action == 'existing':
-                    raise MMException("A project with this name already exists in your workspace.")   
+                    raise MMException("A project with this name already exists in your workspace.")
 
-            self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type})             
+            self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type})
             self.id = mm_util.new_mavensmate_id()
             if action == 'new':
                 project_metadata = self.sfdc_client.retrieve(package=self.package)
                 mm_util.put_project_directory_on_disk(self.project_name, force=True)
                 mm_util.extract_base64_encoded_zip(project_metadata.zipFile, os.path.join(config.connection.workspace,self.project_name))
                 mm_util.rename_directory(os.path.join(config.connection.workspace,self.project_name,"unpackaged"), os.path.join(config.connection.workspace,self.project_name,"src"))
+                mm_util.pseudo_package_project(os.path.join(config.connection.workspace,self.project_name,"src"))
+
             elif action == 'existing' and existing_is_in_workspace == False:
                 shutil.move(self.directory, config.connection.workspace)
 
@@ -107,7 +109,7 @@ class MavensMateProject(object):
             self.__set_sfdc_session()
             mm_util.put_password_by_key(self.id, self.password)
             self.sfdc_session = self.__get_sfdc_session() #hacky...need to fix
-            
+
             if os.path.exists(os.path.join(config.connection.workspace,self.project_name,"metadata.zip")):
                 os.remove(os.path.join(config.connection.workspace,self.project_name,"metadata.zip"))
 
@@ -120,7 +122,7 @@ class MavensMateProject(object):
 
     #updates the salesforce.com credentials associated with the project
     def update_credentials(self):
-        self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type}, override_session=True)              
+        self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type}, override_session=True)
         self.id = self.settings['id']
         self.username = self.username
         self.environment = self.org_type
@@ -131,7 +133,7 @@ class MavensMateProject(object):
     #upgrades project from the legacy format to 2.0+format
     def upgrade(self):
         try:
-            self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type})             
+            self.sfdc_client = MavensMateClient(credentials={"username":self.username,"password":self.password,"org_type":self.org_type})
             self.id = mm_util.new_mavensmate_id()
             self.__put_project_file()
             self.__put_base_config()
@@ -171,10 +173,10 @@ class MavensMateProject(object):
                     params['files'] = [filepath]
                     self.refresh_selected_metadata(params)
                     fetched = ", fetched metadata file from server"
-                return mm_util.generate_error_response("This API name is already in use in your org" + fetched + ".")      
+                return mm_util.generate_error_response("This API name is already in use in your org" + fetched + ".")
 
             tmp, tmp_unpackaged = mm_util.put_tmp_directory_on_disk(True)
-            
+
             mm_util.put_skeleton_files_on_disk(metadata_type, api_name, tmp_unpackaged, apex_class_type, apex_trigger_object_api_name, github_template)
             package_xml_body = mm_util.get_package_xml_contents({metadata_type : [ api_name ]})
             mm_util.put_package_xml_in_directory(tmp_unpackaged, package_xml_body)
@@ -199,7 +201,7 @@ class MavensMateProject(object):
                     else:
                         extension = filename.split(".")[-1]
                     mt = mm_util.get_meta_type_by_suffix(extension)
-                    if mt != None: 
+                    if mt != None:
                         meta_dir = mt['directoryName']
                         path = os.path.join(self.location, 'src', meta_dir)
                         if not os.path.exists(path):
@@ -210,7 +212,7 @@ class MavensMateProject(object):
                     # only apex files and meta.xml files should make it to here
                     shutil.copy(full_file_path, path)
             shutil.rmtree(tmp)
-            
+
             self.__update_package_xml_with_metadata(metadata_type, api_name)
             self.refresh_selected_properties(params)
 
@@ -259,6 +261,7 @@ class MavensMateProject(object):
         try:
             tmp = mm_util.put_tmp_directory_on_disk()
             shutil.copytree(os.path.join(self.location,"src"), os.path.join(tmp,"src"))
+            mm_util.move_file_from_pseudo_directories_to_root(os.path.join(tmp, "src"))
             mm_util.rename_directory(os.path.join(tmp,"src"), os.path.join(tmp,"unpackaged"))
             zip_file = mm_util.zip_directory(tmp, tmp)
             mm_compile_rollback_on_error = config.connection.get_plugin_client_setting("mm_compile_rollback_on_error", False)
@@ -274,7 +277,7 @@ class MavensMateProject(object):
             dictionary2 = []
 
             result = d["soapenv:Envelope"]["soapenv:Body"]['checkDeployStatusResponse']['result']
-            
+
             for x, y in result.iteritems():
                 if(x == "id"):
                     dictionary["id"] = y
@@ -286,7 +289,7 @@ class MavensMateProject(object):
                 for key, value in a.iteritems():
                     if(key == 'problemType' and value == 'Error'):
                         dictionary2.append(a)
-            dictionary["Messages"] = dictionary2 
+            dictionary["Messages"] = dictionary2
 
             shutil.rmtree(tmp)
 
@@ -305,7 +308,7 @@ class MavensMateProject(object):
         return HealthCheck(self.location).run()
 
     #compiles metadata
-    def compile_selected_metadata(self, params):        
+    def compile_selected_metadata(self, params):
         files = params.get('files', None)
         use_tooling_api = config.connection.get_plugin_client_setting('mm_compile_with_tooling_api', False)
         check_for_conflicts = config.connection.get_plugin_client_setting('mm_compile_check_conflicts', False)
@@ -351,7 +354,7 @@ class MavensMateProject(object):
                 self.__put_settings_file(new_settings)
             else:
                 container_id = self.settings['metadata_container']
-            
+
             file_ext = files[0].split('.')[-1]
             try:
                 result = self.sfdc_client.compile_with_tooling_api(files, container_id)
@@ -367,7 +370,7 @@ class MavensMateProject(object):
         #the user has either chosen not to use the tooling api, or it's non apex metadata
         else:
             try:
-                
+
                 for f in files:
                     if '-meta.xml' in f:
                         corresponding_file = f.split('-meta.xml')[0]
@@ -390,7 +393,7 @@ class MavensMateProject(object):
                 for full_file_path in files:
                     if 'package.xml' in full_file_path:
                         continue
-                    if config.is_windows: 
+                    if config.is_windows:
                         destination = os.path.join(tmp,'unpackaged',full_file_path.split('\src\\')[1])
                     else:
                         destination = os.path.join(tmp,'unpackaged',full_file_path.split('/src/')[1])
@@ -398,7 +401,7 @@ class MavensMateProject(object):
                     if not os.path.exists(destination_directory):
                         os.makedirs(destination_directory)
                     shutil.copy2(full_file_path, destination_directory)
-
+                mm_util.move_file_from_pseudo_directories_to_root(os.path.join(tmp,"unpackaged"))
                 package_xml = mm_util.get_package_xml_contents(metadata_package_dict)
                 mm_util.put_package_xml_in_directory(os.path.join(tmp,"unpackaged"), package_xml)
                 zip_file = mm_util.zip_directory(tmp, tmp)
@@ -417,7 +420,7 @@ class MavensMateProject(object):
                 if result['success'] == True:
                     self.refresh_selected_properties(params)
 
-                return json.dumps(result)
+                return mm_util.generate_success_response(result)
 
             except Exception, e:
                 try:
@@ -532,13 +535,13 @@ class MavensMateProject(object):
     def clean(self, **kwargs):
         try:
             if self.sfdc_client == None or self.sfdc_client.is_connection_alive() == False:
-                self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)  
+                self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)
                 self.__set_sfdc_session()
-            
+
             #TESTING: moving to tmp directory in case something goes wrong during clean
             # tmp = mm_util.put_tmp_directory_on_disk()
             # shutil.copytree(self.location, tmp)
-            
+
             use_tooling_api = config.connection.get_plugin_client_setting('mm_compile_with_tooling_api', False)
             if use_tooling_api == True and int(float(mm_util.SFDC_API_VERSION)) >= 27:
                 self.reset_metadata_container()
@@ -580,15 +583,15 @@ class MavensMateProject(object):
                     if not os.path.exists(destination_directory):
                         os.makedirs(destination_directory)
                     shutil.move(full_file_path, destination)
-           
+
             #remove empty directories
             for dirname, dirnames, filenames in os.walk(os.path.join(self.location,"src")):
                 if dirname == os.path.join(self.location,"src"):
                     continue
                 files = os.listdir(dirname)
                 if len(files) == 0:
-                    os.rmdir(dirname) 
-                    
+                    os.rmdir(dirname)
+
 
             if 'overwrite_package_xml' in kwargs and kwargs['overwrite_package_xml'] == True:
                 os.remove(os.path.join(self.location,"src","package.xml"))
@@ -607,8 +610,8 @@ class MavensMateProject(object):
     def get_retrieve_result(self, params):
 
         if self.sfdc_client == None or self.sfdc_client.is_connection_alive() == False:
-            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)  
-        
+            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)
+
         if 'directories' in params and len(params['directories']) > 0 and 'files' in params and len(params['files']) > 0:
             raise MMException("Please select either directories or files to refresh, not both")
         elif 'directories' in params and len(params['directories']) > 0:
@@ -619,7 +622,7 @@ class MavensMateProject(object):
                 # refresh all if it's the project base or src directory
                 if basename == config.connection.project_name or basename == "src":
                     data = mm_util.get_default_metadata_data();
-                    for item in data: 
+                    for item in data:
                         if 'directoryName' in item:
                             types.append(item['xmlName'])
                 else:
@@ -629,7 +632,7 @@ class MavensMateProject(object):
                         if 'childXmlNames' in metadata_type:
                             for child in metadata_type['childXmlNames']:
                                 types.append(child)
-          
+
             custom_fields = []
             for val in self.get_package_types():
                 package_type = val['name']
@@ -680,6 +683,7 @@ class MavensMateProject(object):
     def refresh_selected_metadata(self, params):
         try:
             retrieve_result = self.get_retrieve_result(params)
+            mm_util.move_file_from_pseudo_directories_to_root(os.path.join(self.location,"src"))
             #take this opportunity to freshen the cache
             self.cache_apex_file_properties(retrieve_result.fileProperties)
             mm_util.extract_base64_encoded_zip(retrieve_result.zipFile, self.location)
@@ -699,6 +703,8 @@ class MavensMateProject(object):
                     if not os.path.exists(destination_directory):
                         os.makedirs(destination_directory)
                     shutil.move(full_file_path, destination)
+
+            mm_util.pseudo_package_project(os.path.join(self.location,"src"))
             shutil.rmtree(os.path.join(self.location,"unpackaged"))
             if os.path.exists(os.path.join(self.location,"metadata.zip")):
                 os.remove(os.path.join(self.location,"metadata.zip"))
@@ -749,12 +755,12 @@ class MavensMateProject(object):
         props = self.get_apex_file_properties();
         if apex_file in props:
             del props[apex_file]
-        self.write_apex_file_properties(props)    
-        
+        self.write_apex_file_properties(props)
+
     def cache_apex_file_properties(self, properties, write=True):
         if not len(properties):
             return;
-        
+
         apex_file_properties = self.get_apex_file_properties()
 
         for prop in properties:
@@ -792,8 +798,8 @@ class MavensMateProject(object):
     def open_selected_metadata(self, params):
         try:
             if "files" in params:
-                if "type" in params: 
-                    open_type = params.get("type", None) 
+                if "type" in params:
+                    open_type = params.get("type", None)
                 else:
                     open_type = "edit"
                 files = params.get("files", None)
@@ -803,7 +809,7 @@ class MavensMateProject(object):
                     for fileabs in files:
                         basename = os.path.basename(fileabs)
 
-                        if basename not in apex_file_properties: 
+                        if basename not in apex_file_properties:
                             # make sure we have meta data and then get the object type
                             if os.path.isfile(fileabs+"-meta.xml"):
                                 xmldoc = minidom.parse(fileabs+"-meta.xml")
@@ -813,7 +819,7 @@ class MavensMateProject(object):
                                 continue
 
                             object_id = self.sfdc_client.get_apex_entity_id_by_name(object_type=object_type, name=basename)
-                            if not object_id: 
+                            if not object_id:
                                 continue
                         else:
                             props = apex_file_properties[basename]
@@ -830,7 +836,7 @@ class MavensMateProject(object):
                                 if not p.search(content):
                                     continue
                                 p = re.compile("\swebservice\s", re.I + re.M)
-                                if not p.search(content): 
+                                if not p.search(content):
                                     continue
 
                         # get the server instance url and set the redirect url
@@ -842,7 +848,7 @@ class MavensMateProject(object):
                             f, ext = os.path.splitext(basename)
                             if object_type == "CustomObject" and not f.endswith('__c'):
                                 # standard object?
-                                ret_url = "/p/setup/layout/LayoutFieldList?type=" + f + "%23CustomFieldRelatedList_target"                             
+                                ret_url = "/p/setup/layout/LayoutFieldList?type=" + f + "%23CustomFieldRelatedList_target"
                             else:
                                 ret_url = "/" + object_id
 
@@ -888,7 +894,7 @@ class MavensMateProject(object):
             api = config.connection.get_plugin_client_setting('mm_test_api', 'metadata')
             if params.get('api', None) != None:
                 api = params.get('api', 'apex')
-            
+
             if api == 'apex':
                 run_tests_result = self.sfdc_client.run_tests(params)
                 if "soapenv:Envelope" in run_tests_result:
@@ -925,7 +931,7 @@ class MavensMateProject(object):
                 shutil.rmtree(tmp)
                 return result
         except BaseException, e:
-            return mm_util.generate_error_response(e.message)  
+            return mm_util.generate_error_response(e.message)
 
     #deploys metadata to one or more orgs
     def deploy_to_server(self, params):
@@ -945,13 +951,12 @@ class MavensMateProject(object):
                         timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H %M %S')
                     os.makedirs(os.path.join(self.location,"deploy",destination['username'],timestamp))
                     mm_util.extract_base64_encoded_zip(deploy_metadata.zipFile, os.path.join(self.location,"deploy",destination['username'],timestamp))
-
                 thread = DeploymentHandler(self, destination, params, deploy_metadata)
                 threads.append(thread)
-                thread.start()  
+                thread.start()
             deploy_results = []
             for thread in threads:
-                thread.join()  
+                thread.join()
                 deploy_results.append(thread.result)
             return deploy_results
         except Exception, e:
@@ -979,7 +984,7 @@ class MavensMateProject(object):
             src.close()
             return mm_util.generate_success_response('Org Connection Successfully Created')
         except Exception, e:
-            return mm_util.generate_error_response(e.message) 
+            return mm_util.generate_error_response(e.message)
 
     #returns a list of all org connections for this project
     def get_org_connections(self, json=True):
@@ -1016,7 +1021,7 @@ class MavensMateProject(object):
         return package_names
 
     #delete a specific org connection
-    def delete_org_connection(self, payload):  
+    def delete_org_connection(self, payload):
         try:
             org_connections = self.get_org_connections(False)
             updated_org_connections = []
@@ -1038,10 +1043,10 @@ class MavensMateProject(object):
     #compiles a list of all metadata in the org and places in .org_metadata file
     def index_metadata(self, mtypes=None):
         startThread = time.clock()
-        try:    
+        try:
             return_list = []
             if self.sfdc_client == None or self.sfdc_client.is_connection_alive() == False:
-                self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)  
+                self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=True)
                 self.__set_sfdc_session()
 
             data = self.__get_org_describe()
@@ -1063,21 +1068,21 @@ class MavensMateProject(object):
                 to_be_indexed = data
 
             metadata_chunks = list(mm_util.grouper(8, to_be_indexed))
-            for chunk in metadata_chunks:                    
+            for chunk in metadata_chunks:
                 thread_client = MavensMateClient(credentials=creds)
                 thread = IndexCall(thread_client, chunk)
                 threads.append(thread)
                 thread.start()
-                
+
             for thread in threads:
                 thread.join()
                 if len(thread.results) == len(thread.clean_types):
                     thread_results.extend(thread.results)
-            
-            return_list = sorted(thread_results, key=itemgetter('text')) 
 
-            #no specific metadata types were requested, 
-            #so we simply overwirte .org_metadata with the new index 
+            return_list = sorted(thread_results, key=itemgetter('text'))
+
+            #no specific metadata types were requested,
+            #so we simply overwirte .org_metadata with the new index
             if mtypes == None:
                 file_body = json.dumps(return_list, sort_keys=False, indent=4)
                 src = open(os.path.join(self.location,"config",".org_metadata"), "w")
@@ -1163,17 +1168,17 @@ class MavensMateProject(object):
 
             if metadata_def == None:
                 continue
-            
+
             members = val['members']
             #print 'processing: ', metadata_type
             #print 'package members: ', members
-            
+
             is_parent_type  = 'parentXmlName' not in metadata_def
             is_child_type   = 'parentXmlName' in metadata_def
             is_folder_based = 'inFolder' in metadata_def and metadata_def['inFolder'] == True
-            
+
             server_metadata_item = None
-            
+
             #print('is_parent_type --> ', is_parent_type)
             #print('is_child_type --> ', is_child_type)
             #print('is_folder_based --> ', is_folder_based)
@@ -1204,10 +1209,10 @@ class MavensMateProject(object):
                                         ggchild['select'] = True
                 continue
             else: #package has specified members (members => ['Account', 'Lead'])
-            
+
                 if type(members) is not list:
                     members = [members]
-                
+
                 if is_folder_based: #e.g.: dashboard, report, etc.
                     #print 'folder based!'
                     for m in members:
@@ -1274,7 +1279,7 @@ class MavensMateProject(object):
                                             ggchild['select'] = True
                     if item['xmlName'] == 'CustomObject' and selected == len(server_metadata_item['children']):
                         item['select'] = True
-        
+
         return return_list
 
     def index_apex_overlays(self, payload=None):
@@ -1297,7 +1302,7 @@ class MavensMateProject(object):
 
                 class_filter = ' or '.join(class_ids)
                 trigger_filter = ' or '.join(trigger_ids)
-                
+
                 soql = 'Select Id, Name From ApexClass WHERE '+class_filter
                 class_result = self.sfdc_client.execute_query(soql)
 
@@ -1398,7 +1403,7 @@ class MavensMateProject(object):
             for c in payload['debug_categories']:
                 if 'category' in c:
                     request[c['category']] = c['level']
-            
+
             request['ExpirationDate'] = mm_util.get_iso_8601_timestamp(int(float(payload.get('expiration', 30))))
 
             create_result = self.sfdc_client.create_trace_flag(request)
@@ -1448,11 +1453,11 @@ class MavensMateProject(object):
                         file_path = os.path.join(config.connection.workspace,self.project_name,"debug","checkpoints",r['HeapDump']['className'],str(r['Line']),file_name)
                         src = open(file_path, "w")
                         src.write(json.dumps(r,sort_keys=True,indent=4))
-                        src.close() 
+                        src.close()
             else:
                 config.logger.debug("No checkpoints to download")
-        
-            return mm_util.generate_success_response(str(number_of_checkpoints)+' Checkpoints successfully downloaded') 
+
+            return mm_util.generate_success_response(str(number_of_checkpoints)+' Checkpoints successfully downloaded')
         except Exception, e:
             print mm_util.generate_error_response(e.message)
 
@@ -1486,11 +1491,11 @@ class MavensMateProject(object):
                     file_name = modstamp+"-"+log["userid"]+".json"
                     src = open(os.path.join(config.connection.workspace,self.project_name,"debug","logs",file_name), "w")
                     src.write(log["log"])
-                    src.close() 
+                    src.close()
             else:
                 config.logger.debug("No logs to download")
 
-            return mm_util.generate_success_response(str(number_of_logs)+' Logs successfully downloaded') 
+            return mm_util.generate_success_response(str(number_of_logs)+' Logs successfully downloaded')
         except Exception, e:
             print mm_util.generate_error_response(e.message)
 
@@ -1519,7 +1524,7 @@ class MavensMateProject(object):
 
     def get_org_users_list(self):
         if self.sfdc_client == None or self.sfdc_client.is_connection_alive() == False:
-            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=False)  
+            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=False)
             self.__set_sfdc_session()
         try:
             query_result = self.sfdc_client.execute_query('Select Id, Name From User Where IsActive = True order by Name limit 10000')
@@ -1532,7 +1537,7 @@ class MavensMateProject(object):
 
     def get_trace_flags(self):
         if self.sfdc_client == None or self.sfdc_client.is_connection_alive() == False:
-            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=False)  
+            self.sfdc_client = MavensMateClient(credentials=self.get_creds(), override_session=False)
             self.__set_sfdc_session()
         query_result = self.sfdc_client.execute_query('Select Id, Name From User Where IsActive = True order by Name limit 10000')
         if 'records' in query_result:
@@ -1593,23 +1598,23 @@ class MavensMateProject(object):
         except:
             raise MMException('Unable to read settings file for this project.')
 
-    def get_creds(self): 
+    def get_creds(self):
         #initialize variables so it doesn't bomb if any are missing
         id, project_name, username, environment, endpoint, org_type, password, is_legacy = None, '', '', None, '', '', '', False
         #get the mm project settings
         settings = self.__get_settings()
 
         #get the common project properties
-        if 'id' in settings: 
+        if 'id' in settings:
             id = settings['id']
-        if 'project_name' in settings: 
+        if 'project_name' in settings:
             project_name = settings['project_name']
         else:
             #default to project folder name
             project_name = os.path.basename(self.location)
-        if 'username' in settings: 
+        if 'username' in settings:
             username = settings['username']
-        if 'environment' in settings: 
+        if 'environment' in settings:
             #TODO: let's standardize environment vs. org_type (org_type is preferred)
             environment, org_type = settings['environment'], settings['environment']
             endpoint = mm_util.get_sfdc_endpoint_by_type(environment)
@@ -1618,7 +1623,7 @@ class MavensMateProject(object):
             password = mm_util.get_password_by_key(id)
         else:
             password = mm_util.get_password_by_project_name(project_name)
-        
+
         if password == None:
             raise MMException("Unable to retrieve password from the keychain store.")
 
@@ -1680,7 +1685,7 @@ class MavensMateProject(object):
         file_name = ".overlays"
         src = open(os.path.join(config.connection.workspace,self.project_name,"config",file_name), "w")
         src.write(overlays)
-        src.close()   
+        src.close()
 
     #returns metadata types for this org, or default types
     def __get_org_describe(self):
@@ -1719,7 +1724,7 @@ class MavensMateProject(object):
         project_path = os.path.join(config.connection.workspace,self.project_name)
         if not os.path.exists(os.path.join(project_path, 'config')):
             os.makedirs(os.path.join(project_path, 'config'))
-        src = open(os.path.join(project_path, 'config', '.debug'), "w")  
+        src = open(os.path.join(project_path, 'config', '.debug'), "w")
         debug_settings = {}
         default_levels = {
             "Database"      : "INFO",
@@ -1753,15 +1758,15 @@ class MavensMateProject(object):
                             "characters": "."
                         },
                         {
-                            "selector": "text.html - comment", 
+                            "selector": "text.html - comment",
                             "characters": ":"
                         },
                         {
-                            "selector": "text.html - comment", 
+                            "selector": "text.html - comment",
                             "characters": "<"
                         },
                         {
-                            "selector": "text.html - comment", 
+                            "selector": "text.html - comment",
                             "characters": " "
                         }
                     ]
@@ -1820,7 +1825,7 @@ class MavensMateProject(object):
         except:
             return ["{0}".format(self.sfdc_client.user_id)]
         return users
-        
+
 
 class DeploymentHandler(threading.Thread):
 
@@ -1840,17 +1845,17 @@ class DeploymentHandler(threading.Thread):
                 "username":self.destination['username'],
                 "password":self.destination['password'],
                 "org_type":self.destination['org_type']
-            })    
+            })
 
             # Check testRequired to find out if this is a production org.
-            # This is a bit of a misnomer as runAllTests=True will run managed package tests, other 
-            # tests are *always* run so we should honor the UI, however Production orgs do require 
+            # This is a bit of a misnomer as runAllTests=True will run managed package tests, other
+            # tests are *always* run so we should honor the UI, however Production orgs do require
             # rollbackOnError=True so we should override it here
             describe_result = deploy_client.describeMetadata(retXml=False)
             if describe_result.testRequired == True:
                 self.params['rollback_on_error'] = True
 
-            self.params['zip_file'] = self.deploy_metadata.zipFile      
+            self.params['zip_file'] = self.deploy_metadata.zipFile
             deploy_result = deploy_client.deploy(self.params)
             #config.logger.debug('>>>>>> DEPLOY RESULT >>>>>>')
             #config.logger.debug(deploy_result)
@@ -1908,7 +1913,7 @@ class IndexCall(threading.Thread):
                 #self.result = mm_util.generate_error_response(e.message)
                 #self.results.append({})
                 self.results.append({
-                    "title"         : mtype['xmlName'], 
+                    "title"         : mtype['xmlName'],
                     "text"          : mtype['xmlName'],
                     "xmlName"       : mtype['xmlName'],
                     "type"          : mtype,
@@ -1926,4 +1931,3 @@ class IndexCall(threading.Thread):
                     "hasChildTypes" : 'childXmlNames' in mtype
                 })
                 continue
-                

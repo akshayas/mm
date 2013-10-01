@@ -12,8 +12,8 @@ from lib.mm_client import MavensMateClient
 from lib.mm_exceptions import MMException
 
 class MavensMateRequest():
-    
-    def __init__(self, *args, **kwargs): 
+
+    def __init__(self, *args, **kwargs):
         self.args       = kwargs.get('args', {})
         self.payload    = kwargs.get('payload', {})
         self.operation_dict = {
@@ -65,13 +65,13 @@ class MavensMateRequest():
             self.operation = self.payload['operation']
         else:
             self.operation = self.args.operation
-        
+
     # each operation sets up a single connection
     # the connection holds information about the plugin running it
     # and establishes a project object
     def setup_connection(self):
         config.connection = MavensMatePluginConnection(
-            client=self.args.client or 'SUBLIME_TEXT_3',
+            client=self.args.client or 'SUBLIME_TEXT_2',
             ui=self.args.ui_switch,
             params=self.payload,
             operation=self.operation)
@@ -90,7 +90,7 @@ class MavensMateRequest():
             tmp_html_file = util.generate_ui(self.operation,self.payload)
             util.launch_ui(tmp_html_file)
             print util.generate_success_response('UI Generated Successfully')
-        else:        
+        else:
             if self.operation not in self.operation_dict:
                 raise MMException('Unsupported operation')
             requested_function = self.operation_dict[self.operation]
@@ -103,7 +103,7 @@ class MavensMateRequest():
                 "sid"                   : self.payload.get('sid', None),
                 "metadata_server_url"   : urllib.unquote(self.payload.get('metadata_server_url', None)),
                 "server_url"            : urllib.unquote(self.payload.get('server_url', None)),
-            }) 
+            })
         elif 'username' in self.payload:
             client = MavensMateClient(credentials={
                 "username"              : self.payload.get('username', None),
@@ -175,7 +175,7 @@ class MavensMateRequest():
 
     def upgrade_project(self):
         print config.connection.project.upgrade()
-        
+
     def checkout_project(self):
         print config.connection.new_project(self.payload,action='checkout')
 
@@ -254,8 +254,8 @@ class MavensMateRequest():
                 "username" : self.payload['username'],
                 "password" : self.payload['password'],
                 "org_type" : self.payload['org_type']
-            }) 
-            
+            })
+
             response = {
                 "sid"                   : client.sid,
                 "user_id"               : client.user_id,
@@ -305,15 +305,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--operation') #name of the operation being requested
     parser.add_argument('-c', '--client') #name of the plugin client ("SUBLIME_TEXT_2", "SUBLIME_TEXT_3", "TEXTMATE", "NOTEPAD_PLUS_PLUS", "BB_EDIT", etc.)
-    parser.add_argument('--ui', action='store_true', default=False, 
+    parser.add_argument('--ui', action='store_true', default=False,
         dest='ui_switch', help='Include flag to launch the default UI for the operation')
-    parser.add_argument('--quiet', action='store_true', default=False, 
+    parser.add_argument('--quiet', action='store_true', default=False,
         dest='quiet', help='To suppress mm.py output, use this flag')
-    parser.add_argument('--html', action='store_true', default=False, 
+    parser.add_argument('--html', action='store_true', default=False,
         dest='respond_with_html', help='Include flag if you want the response in HTML')
     args = parser.parse_args()
     payload = util.get_request_payload()
-    
     try:
         r = MavensMateRequest(args=args, payload=payload)
         r.execute()

@@ -16,7 +16,7 @@ class MavensMatePluginConnection(object):
 
     currently_supported_clients = ['SUBLIME_TEXT_2', 'SUBLIME_TEXT_3']
     PluginClients = enum(SUBLIME_TEXT_2='SUBLIME_TEXT_2', SUBLIME_TEXT_3='SUBLIME_TEXT_3', NOTEPAD_PLUS_PLUS='NOTEPAD_PLUS_PLUS', TEXTMATE='TEXTMATE')
-    
+
     def __init__(self, params={}, **kwargs):
         config.connection = self
         params = dict(params.items() + kwargs.items()) #join params and kwargs
@@ -84,7 +84,7 @@ class MavensMatePluginConnection(object):
                 config.logger.setLevel(logging.DEBUG)
                 config.suds_logger.setLevel(logging.DEBUG)
             elif log_level == 'INFO':
-                config.logger.setLevel(logging.INFO) 
+                config.logger.setLevel(logging.INFO)
                 config.suds_logger.setLevel(logging.INFO)
 
     #returns the workspace for the current connection (/Users/username/Workspaces/MavensMate)
@@ -233,7 +233,7 @@ class MavensMatePluginConnection(object):
 
                     src = open(os.path.join(os.path.expanduser('~'),'Library','Application Support','MavensMate','.github.json'), "wb")
                     src.write(json.dumps(response, sort_keys=False, indent=4))
-                    src.close() 
+                    src.close()
                     return mm_util.generate_success_response('Connected to GitHub successfully!')
             else:
                 return mm_util.generate_error_response(response)

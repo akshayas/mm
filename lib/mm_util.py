@@ -4,7 +4,7 @@ import json
 import re
 import config
 import shutil
-import tempfile 
+import tempfile
 import string
 import random
 import base64
@@ -32,8 +32,10 @@ from jinja2 import Environment, FileSystemLoader
 import jinja2.ext
 import jinja2htmlcompress
 from jinja2htmlcompress import HTMLCompress
+import re
 
 TOOLING_API_EXTENSIONS = ['cls', 'trigger', 'page', 'component']
+PACKAGEABLE_DIRECTORIES = ['classes']
 
 SFDC_API_VERSION = "28.0" #is overridden upon instantiation of mm_connection if plugin specifies mm_api_version
 
@@ -109,15 +111,15 @@ def get_sfdc_endpoint(url):
     return endpoint
 
 def get_endpoint_type_by_url(endpoint):
-    if endpoint in URL_TO_ENDPOINT_TYPE: 
-        return URL_TO_ENDPOINT_TYPE[endpoint] 
-    else: 
+    if endpoint in URL_TO_ENDPOINT_TYPE:
+        return URL_TO_ENDPOINT_TYPE[endpoint]
+    else:
         return ""
 
 def get_sfdc_endpoint_by_type(type):
-    if type in ENDPOINTS: 
-        return ENDPOINTS[type] 
-    else: 
+    if type in ENDPOINTS:
+        return ENDPOINTS[type]
+    else:
         return ""
 
 def put_project_directory_on_disk(project_name, **kwargs):
@@ -198,6 +200,7 @@ def extract_base64_encoded_zip(encoded, where_to_extract):
                 os.makedirs(path)
         outputfile = open(path, "wb")
         shutil.copyfileobj(f.open(fileinfo.filename), outputfile)
+        outputfile.close()
     #remove zip file
     try:
         os.remove(where_to_extract+"/metadata.zip")
@@ -327,7 +330,7 @@ def get_meta_type_by_suffix(suffix):
     data = get_default_metadata_data()
     if '.' in suffix:
         suffix = suffix.replace('.','')
-    for item in data["metadataObjects"]: 
+    for item in data["metadataObjects"]:
         if 'suffix' in item and item['suffix'] == suffix:
             return item
 
@@ -335,7 +338,7 @@ def get_meta_type_by_dir(dir_name):
     parent_data = get_default_metadata_data()
     child_data = get_child_metadata_data()
     data = parent_data['metadataObjects'] + child_data
-    for item in data: 
+    for item in data:
         if 'directoryName' in item and item['directoryName'].lower() == dir_name.lower():
             return item
         elif 'tagName' in item and item['tagName'].lower() == dir_name.lower():
@@ -344,15 +347,15 @@ def get_meta_type_by_dir(dir_name):
 def get_meta_type_by_name(name):
     data = get_default_metadata_data()
     child_data = get_child_metadata_data()
-    for item in data["metadataObjects"]: 
+    for item in data["metadataObjects"]:
         if 'xmlName' in item and item['xmlName'] == name:
-            return item 
-    for item in child_data: 
+            return item
+    for item in child_data:
         if 'xmlName' in item and item['xmlName'] == name:
             return item
 
 def put_skeleton_files_on_disk(metadata_type, api_name, where, apex_class_type='default', apex_trigger_object_api_name='', github_template=None):
-    
+
     if github_template == None:
         template_map = config.connection.get_plugin_client_setting('mm_default_apex_templates_map', {})
         custom_templates = config.connection.get_plugin_client_setting('mm_apex_templates_map', {})
@@ -617,7 +620,7 @@ def launch_ui(tmp_html_file_location):
             threading.Thread(target=b).start()
         elif 'darwin' in sys.platform:
             webbrowser.open("{0}{1}".format("file:///",tmp_html_file_location))
-        else: 
+        else:
             webbrowser.get('windows-default').open("{0}{1}".format("file:///",tmp_html_file_location))
     else:
         os.system("open -n '"+config.base_path+"/bin/MavensMateWindowServer.app' --args -url '"+tmp_html_file_location+"'")
@@ -738,7 +741,7 @@ def lower_keys(x):
 
 #prepares the unit test result for processing by the jinja template
 def process_unit_test_result(result):
-    
+
     config.logger.debug('>>>> RUN TEST RESULT')
     config.logger.debug(result)
 
@@ -755,7 +758,7 @@ def process_unit_test_result(result):
             if 'numLocations' in coverage_result and 'numLocationsNotCovered' in coverage_result:
                 locations = int(float(coverage_result['numLocations']))
                 locations_not_covered = int(float(coverage_result['numLocationsNotCovered']))
-                percent_covered = 0 
+                percent_covered = 0
                 if locations > 0:
                     percent_covered = int(round(100 * ((float(locations) - float(locations_not_covered)) / locations)))
                 coverage_result['percentCovered'] = percent_covered
@@ -786,7 +789,7 @@ def process_unit_test_result(result):
             result['codeCoverageWarnings'] = [result['codeCoverageWarnings']]
         for warning in result['codeCoverageWarnings']:
             if 'name' in warning and type(warning['name']) is not str and type(warning['name']) is not unicode:
-               warning['name'] = None 
+               warning['name'] = None
 
     results_normal = {}
     #{"foo"=>[{:name = "foobar"}{:name = "something else"}], "bar"=>[]}
@@ -803,13 +806,13 @@ def process_unit_test_result(result):
                 }
             else:
                 pass_fail[success['name']]['pass'] += 1
-            if success['name'] not in results_normal: #key isn't there yet, put it in        
+            if success['name'] not in results_normal: #key isn't there yet, put it in
                 results_normal[success['name']] = [success]
             else: #key is there, let's add metadata to it
                 arr = results_normal[success['name']] #get the existing array
                 arr.append(success) #add the new piece of metadata
                 results_normal[success['name']] = arr #replace the key
-    
+
     if 'failures' in result:
         # for single results we don't get a list back
         if type(result['failures']) is not list:
@@ -822,7 +825,7 @@ def process_unit_test_result(result):
                 }
             else:
                 pass_fail[failure['name']]['fail'] += 1
-            if failure['name'] not in results_normal: #key isn't there yet, put it in        
+            if failure['name'] not in results_normal: #key isn't there yet, put it in
                 results_normal[failure['name']] = [failure]
             else: #key is there, let's add metadata to it
                 arr = results_normal[failure['name']] #get the existing array
@@ -856,10 +859,10 @@ def get_metadata_hash(selected_files=[]):
         name, ext = os.path.splitext(f)
         base_name_no_ext = os.path.basename(f).split(".")[0]
         ext_no_period = ext.replace(".", "")
-        metadata_definition = get_meta_type_by_suffix(ext_no_period)      
+        metadata_definition = get_meta_type_by_suffix(ext_no_period)
         meta_type = metadata_definition["xmlName"]
 
-        if meta_type not in meta_hash: #key isn't there yet, put it in        
+        if meta_type not in meta_hash: #key isn't there yet, put it in
             if metadata_definition['inFolder']:
                 arr = f.split("/")
                 if arr[len(arr)-2] != metadata_definition['directoryName']:
@@ -878,12 +881,11 @@ def get_metadata_hash(selected_files=[]):
                     meta_array.append(base_name_no_ext) #add the new piece of metadata
             else:
                 meta_array.append(base_name_no_ext) #file name with no extension
-            
+
             meta_hash[meta_type] = meta_array #replace the key
-        
     return meta_hash
- 
-def parse_deploy_result(res):  
+
+def parse_deploy_result(res):
     return_result = {
         "id"        : res["id"],
         "success"   : res["success"]
@@ -892,11 +894,11 @@ def parse_deploy_result(res):
     retrieve_result = {}
     run_test_result = {}
 
-   
+
     if 'runTestResult' in res and type(res['runTestResult']) is not list:
         return_result['runTestResult'] = [res['runTestResult']]
     else:
-        return_result['runTestResult'] = res['runTestResult']    
+        return_result['runTestResult'] = res['runTestResult']
     return return_result
 
 def parse_deploy_messages(res):
@@ -946,7 +948,7 @@ def parse_run_test_result(res):
         successes = [res['runTestResult']['successes']]
     else:
         successes = res['runTestResult']['successes']
-    
+
     for c in code_coverage:
         code_coverage_return.append({
             "changed"       : m["changed"],
@@ -969,7 +971,110 @@ def grouper(n, iterable, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.izip_longest(fillvalue=fillvalue, *args)
 
-# def get_creds(project_directory): 
+def pseudo_package_project(path_to_src):
+    for packageable_dir in PACKAGEABLE_DIRECTORIES:
+        path_to_packageable_dir = os.path.join(path_to_src, packageable_dir)
+        for root, Dirs, Files in os.walk(path_to_packageable_dir):
+            # Iterate through a sorted list of files
+            for file_name in sorted(Files):
+                if re.search(r'-meta.xml$', file_name):
+                    continue
+                file_path = os.path.join(root, file_name)
+                move_file_to_pseudo_package_directory(file_path, path_to_packageable_dir)
+
+def move_file_to_pseudo_package_directory(source_file_path, path_to_root):
+    file_name = os.path.basename(source_file_path)
+    package_name = __get_pseudo_package_name(source_file_path)
+    if package_name == None:
+        root_file_path = os.path.join(path_to_root, file_name)
+        if not os.path.exists(root_file_path) or not os.path.exists(source_file_path):
+            # File does not exist in either root or source path
+            return
+        if os.path.samefile(source_file_path, root_file_path):
+            return
+        else:
+            shutil.move(source_file_path, root_file_path)
+
+    package_path = package_name.replace('.', '/')
+    destination_file_path = os.path.join(path_to_root, package_path, file_name)
+    if os.path.exists(destination_file_path) and os.path.exists(source_file_path) and os.path.samefile(destination_file_path, source_file_path):
+        return
+
+    __make_package_directory_tree(package_name, path_to_root)
+    shutil.move(source_file_path, destination_file_path)
+
+    # Move the -meta.xml associated with the file
+    if os.path.exists(source_file_path + '-meta.xml'):
+        shutil.move(source_file_path + '-meta.xml', destination_file_path + '-meta.xml')
+
+def move_file_from_pseudo_directories_to_root(path_to_root, force_overwrite=False):
+    if not os.path.exists(path_to_root):
+        return
+    for packageable_dir in PACKAGEABLE_DIRECTORIES:
+        packageable_dir_path = os.path.join(path_to_root, packageable_dir)
+        root_walk = os.walk(packageable_dir_path, topdown=False)
+        for root, Dirs, Files in root_walk:
+            if root.strip().lower() == packageable_dir_path.strip().lower():
+                continue
+            for file_name in sorted(Files):
+                if file_name.endswith('-meta.xml'):
+                    continue
+                if sys.platform.startswith("darwin") and file_name == '.DS_Store':
+                    continue
+                file_path = os.path.join(root, file_name)
+                package_name = __get_pseudo_package_name(file_path)
+                if package_name == None:
+                    if os.path.join(path_to_root, packageable_dir, file_name) != os.path.join(root, file_name):
+                        raise Exception(file_name + ' is not in the ' + packageable_dir + ' root directory')
+
+                if config.is_windows:
+                    package_path = package_name.replace('.', '\\')
+                else:
+                    package_path = package_name.replace('.', '/')
+
+                if os.path.join(path_to_root, packageable_dir, package_path, file_name) != os.path.join(root, file_name):
+                    raise Exception(file_name + ' is not in the same directory as indicated by its package statement')
+                file_source_path = os.path.join(root, file_name)
+                file_destination_path = os.path.join(packageable_dir_path, file_name)
+                if os.path.exists(file_destination_path) and not force_overwrite:
+                    raise Exception(file_destination_path + " already exists. Duplicate file name")
+                shutil.move(file_source_path, packageable_dir_path)
+                if os.path.exists(file_source_path + '-meta.xml'):
+                    shutil.move(file_source_path + '-meta.xml', packageable_dir_path)
+
+        delete_empty_directory(packageable_dir_path)
+
+def __get_pseudo_package_name(file_path):
+    if re.search(r'-meta.xml$', file_path):
+        return
+    f = open(file_path, 'r')
+    firstLine = f.readline()
+    matchedPackage = re.match(r'//\s*package\s(\w[\w\.]*\w)\s*$', firstLine)
+    return None if matchedPackage == None else matchedPackage.group(1)
+
+def __make_package_directory_tree(package_name, root_path):
+    package_directories = package_name.split('.')
+    package_dir_path = root_path
+    for package_directory in package_directories:
+        package_dir_path = os.path.join(package_dir_path, package_directory)
+        if not os.path.exists(package_dir_path):
+            os.makedirs(package_dir_path)
+
+def delete_empty_directory(path_to_root):
+    root_walk = os.walk(path_to_root, topdown=False)
+    list_of_dirs_to_delete = []
+    for root, Dirs, Files in root_walk:
+        if sys.platform.startswith("darwin") and '.DS_Store' in Files:
+            Files.remove('.DS_Store')
+        if len(Files) == 0:
+            list_of_dirs_to_delete.append(root)
+
+    for deletable_dir in list_of_dirs_to_delete:
+        # TODO: Deleting is dangerous. Must be done carefully
+        continue;
+        #os.rmdir(deletable_dir)
+
+# def get_creds(project_directory):
 #     f = open(project_directory + "/config/settings.yaml")
 #     settings = yaml.safe_load(f)
 #     f.close()
@@ -991,16 +1096,16 @@ def grouper(n, iterable, fillvalue=None):
 #             #selected_files = Shellwords.shellwords(ENV["TM_SELECTED_FILES"])
 #             for f in selected_files:
 #                 if '-meta.xml' in f:
-#                     continue      
+#                     continue
 #                 ext = File.extname(f).gsub(".","") #=> cls
-#                 mt_hash = get_meta_type_by_suffix(ext)      
+#                 mt_hash = get_meta_type_by_suffix(ext)
 #                 if mt_hash == None:
 #                     selected_files.delete(f) #????
 #                     continue
 #             if mt_hash[:meta_file]:
 #                 if f + "-meta.xml" not in selected_files: #if they didn't select the meta file, select it anyway
-#                     selected_files.append(f + "-meta.xml")   
-            
+#                     selected_files.append(f + "-meta.xml")
+
 #             selected_files.uniq!
 #             return selected_files
 #     except BaseException, e:

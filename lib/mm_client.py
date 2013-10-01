@@ -55,7 +55,7 @@ class MavensMateClient(object):
             self.endpoint               = self.credentials['endpoint']              if 'endpoint' in self.credentials and self.credentials['endpoint'] != None else mm_util.get_sfdc_endpoint_by_type(self.org_type)
 
         #we do this to prevent an unnecessary "login" call
-        #if the getUserInfo call fails, we catch it and reset our class variables 
+        #if the getUserInfo call fails, we catch it and reset our class variables
         if self.override_session == False and self.sid != None and self.user_id != None and self.metadata_server_url != None and self.endpoint != None and self.server_url != None:
             self.pclient = self.__get_partner_client()
             self.pclient._setEndpoint(self.server_url)
@@ -77,12 +77,12 @@ class MavensMateClient(object):
         elif self.server_url == None:
             self.pclient = self.__get_partner_client()
             self.login()
-            self.reset_creds = True  
+            self.reset_creds = True
 
         #if the cached creds didnt work & username/password/endpoint are not provided, get them from keyring
         if self.sid == None or self.override_session == True:
             self.pclient = self.__get_partner_client()
-            self.login()   
+            self.login()
             self.reset_creds = True
 
     def login(self):
@@ -170,7 +170,7 @@ class MavensMateClient(object):
     def get_org_namespace(self):
         if self.mclient == None:
             self.mclient = self.__get_metadata_client()
-        return self.mclient.getOrgNamespace() 
+        return self.mclient.getOrgNamespace()
 
     def does_metadata_exist(self, **kwargs):
         if self.pclient == None:
@@ -221,7 +221,7 @@ class MavensMateClient(object):
     def list_metadata_basic(self, request):
         if self.mclient == None:
             self.mclient = self.__get_metadata_client()
-        return self.mclient.listMetadata(request, True, config.connection.sfdc_api_version) 
+        return self.mclient.listMetadata(request, True, config.connection.sfdc_api_version)
 
     def list_metadata(self, metadata_type):
         try:
@@ -240,7 +240,7 @@ class MavensMateClient(object):
                 metadata_request_type = metadata_type
             if metadata_request_type == "EmailTemplateFolder":
                 metadata_request_type = "EmailFolder"
-            list_response = self.mclient.listMetadata(metadata_request_type, True, mm_util.SFDC_API_VERSION) 
+            list_response = self.mclient.listMetadata(metadata_request_type, True, mm_util.SFDC_API_VERSION)
             if type(list_response) is not list:
                 list_response = [list_response]
             #print list_response
@@ -297,7 +297,7 @@ class MavensMateClient(object):
                 children = []
                 full_name = element['fullName']
                 #if full_name == "PersonAccount":
-                #    full_name = "Account" 
+                #    full_name = "Account"
                 #print 'processing: ', element
                 if has_children_metadata == True:
                     if not full_name in object_hash:
@@ -324,8 +324,8 @@ class MavensMateClient(object):
                                     "select"    : False,
                                     "title"     : gchild_el
                                 })
-                                children = sorted(children, key=itemgetter('text')) 
-                          
+                                children = sorted(children, key=itemgetter('text'))
+
                             children.append({
                                 "text"      : child_type_def['tagName'],
                                 "isFolder"  : True,
@@ -337,7 +337,7 @@ class MavensMateClient(object):
                                 "select"    : False,
                                 "title"     : child_type_def['tagName']
                             })
-                                            
+
                 #if this type has folders, run queries to grab all metadata in the folders
                 if is_folder_metadata == True:
                     if element["manageableState"] != "unmanaged":
@@ -363,8 +363,8 @@ class MavensMateClient(object):
                             "title"     : folder_element['fullName'].split("/")[1]
 
                         })
-                    
-                children = sorted(children, key=itemgetter('text')) 
+
+                children = sorted(children, key=itemgetter('text'))
                 is_leaf = True
                 cls = ''
                 if is_folder_metadata:
@@ -390,7 +390,7 @@ class MavensMateClient(object):
                     "title"     : element['fullName']
                 })
 
-            return_elements = sorted(return_elements, key=itemgetter('text')) 
+            return_elements = sorted(return_elements, key=itemgetter('text'))
             # if list_response == []:
             #     return list_response
 
@@ -436,7 +436,7 @@ class MavensMateClient(object):
             config.logger.debug(payload)
             r = requests.post(self.get_tooling_url()+"/sobjects/"+tooling_type, data=payload, headers=self.get_rest_headers('POST'), verify=False)
             response = mm_util.parse_rest_response(r.text)
-            
+
             #if it's a dup (probably bc we failed to delete before, let's delete and retry)
             if type(response) is list and 'errorCode' in response[0]:
                 if response[0]['errorCode'] == 'DUPLICATE_VALUE':
@@ -446,7 +446,7 @@ class MavensMateClient(object):
                     r = requests.get(self.get_tooling_url()+"/query/", params={'q':query_string}, headers=self.get_rest_headers(), verify=False)
                     r.raise_for_status()
                     query_result = mm_util.parse_rest_response(r.text)
-                    
+
                     r = requests.delete(self.get_tooling_url()+"/sobjects/{0}/{1}".format(tooling_type, query_result['records'][0]['Id']), headers=self.get_rest_headers(), verify=False)
                     r.raise_for_status()
 
@@ -489,7 +489,7 @@ class MavensMateClient(object):
             r = requests.delete(self.get_tooling_url()+"/sobjects/{0}/{1}".format(tooling_type, member_id), headers=self.get_rest_headers(), verify=False)
             r.raise_for_status()
 
-        return response    
+        return response
 
     def get_metadata_container_id(self):
         query_string = "Select Id from MetadataContainer Where Name = 'MavensMate-"+self.user_id+"'"
@@ -516,7 +516,7 @@ class MavensMateClient(object):
         payload['Name'] = "MavensMate-"+self.user_id
         payload = json.dumps(payload)
         r = requests.post(self.get_tooling_url()+"/sobjects/MetadataContainer", data=payload, headers=self.get_rest_headers('POST'), verify=False)
-        return mm_util.parse_rest_response(r.text)            
+        return mm_util.parse_rest_response(r.text)
 
     #deletes ALL checkpoints in the org
     def delete_mavensmate_metadatacontainers_for_this_user(self):
@@ -540,7 +540,7 @@ class MavensMateClient(object):
         r = requests.get(self.get_tooling_url()+"/completions", params=payload, headers=self.get_rest_headers(), verify=False)
         r.raise_for_status()
 
-    def get_apex_checkpoints(self, **kwargs):        
+    def get_apex_checkpoints(self, **kwargs):
         if 'file_path' in kwargs:
             id = kwargs.get('id', None)
             file_path = kwargs.get('file_path', None)
@@ -560,7 +560,7 @@ class MavensMateClient(object):
             return mm_util.parse_rest_response(r.text)
 
     #creates a checkpoint at a certain line on an apex class/trigger
-    def create_apex_checkpoint(self, payload):        
+    def create_apex_checkpoint(self, payload):
         if 'ScopeId' not in payload:
             payload['ScopeId'] = self.user_id
         if 'API_Name' in payload:
@@ -571,7 +571,7 @@ class MavensMateClient(object):
         payload = json.dumps(payload)
         r = requests.post(self.get_tooling_url()+"/sobjects/ApexExecutionOverlayAction", data=payload, headers=self.get_rest_headers('POST'), verify=False)
         r.raise_for_status()
-        
+
         ##WE ALSO NEED TO CREATE A TRACE FLAG FOR THIS USER
         expiration = mm_util.get_iso_8601_timestamp(30)
 
@@ -616,7 +616,7 @@ class MavensMateClient(object):
                 api_name = mm_util.get_file_name_no_extension(file_path)
                 mtype = mm_util.get_meta_type_by_suffix(ext)
                 id = self.get_apex_entity_id_by_name(object_type=mtype['xmlName'], name=api_name)
-            
+
             query_string = "Select Id from ApexExecutionOverlayAction Where ExecutableEntityId = '{0}' AND Line = {1}".format(id, line_number)
             r = requests.get(self.get_tooling_url()+"/query/", params={'q':query_string}, headers=self.get_rest_headers(), verify=False)
             r.raise_for_status()
@@ -722,14 +722,14 @@ class MavensMateClient(object):
         r = requests.get(self.get_tooling_url()+"/sobjects/ApexLog/"+id+"/Body", headers=self.get_rest_headers(), verify=False)
         return r.text
 
-    
+
 
     #############
     #SYMBOL TABLE
     #############
 
     #pass a list of apex class/trigger ids and return the symbol tables
-    def get_symbol_table(self, ids=[]):        
+    def get_symbol_table(self, ids=[]):
         id_string = "','".join(ids)
         id_string = "'"+id_string+"'"
         query_string = "Select ContentEntityId, SymbolTable From ApexClassMember Where ContentEntityId IN (" + id_string + ")"
@@ -750,7 +750,7 @@ class MavensMateClient(object):
             payload = json.dumps(payload)
             r = requests.post(self.get_tooling_url()+"/sobjects/ApexTestQueueItem", data=payload, headers=self.get_rest_headers('POST'), verify=False)
             res = mm_util.parse_rest_response(r.text)
-            
+
             if res["success"] == True:
                 parentJobId = None
                 qr = self.query("Select ParentJobId FROM ApexTestQueueItem WHERE Id='{0}'".format(res["id"]))
@@ -783,7 +783,7 @@ class MavensMateClient(object):
                                     debug_log_body = self.download_log(r["ApexLogId"])
                                     src = open(file_path, "w")
                                     src.write(debug_log_body)
-                                    src.close() 
+                                    src.close()
 
                                     #file_name = mm_util.get_random_string(12) + ".json"
                                     #log_location = mm_util.put_file_in_tmp_directory(file_name, debug_log_body)
@@ -856,11 +856,11 @@ class MavensMateClient(object):
             pass
 
         return SforcePartnerClient(
-            wsdl_location, 
-            apiVersion=mm_util.SFDC_API_VERSION, 
-            environment=self.org_type, 
-            sid=self.sid, 
-            metadata_server_url=self.metadata_server_url, 
+            wsdl_location,
+            apiVersion=mm_util.SFDC_API_VERSION,
+            environment=self.org_type,
+            sid=self.sid,
+            metadata_server_url=self.metadata_server_url,
             server_url=self.endpoint)
 
     def __get_metadata_client(self):
@@ -872,11 +872,11 @@ class MavensMateClient(object):
            pass
 
         return SforceMetadataClient(
-            wsdl_location, 
-            apiVersion=mm_util.SFDC_API_VERSION, 
-            environment=self.org_type, 
-            sid=self.sid, 
-            url=self.metadata_server_url, 
+            wsdl_location,
+            apiVersion=mm_util.SFDC_API_VERSION,
+            environment=self.org_type,
+            sid=self.sid,
+            url=self.metadata_server_url,
             server_url=self.endpoint)
 
     def __get_apex_client(self):
@@ -888,11 +888,11 @@ class MavensMateClient(object):
             pass
 
         return SforceApexClient(
-            wsdl_location, 
-            apiVersion=mm_util.SFDC_API_VERSION, 
-            environment=self.org_type, 
-            sid=self.sid, 
-            metadata_server_url=self.metadata_server_url, 
+            wsdl_location,
+            apiVersion=mm_util.SFDC_API_VERSION,
+            environment=self.org_type,
+            sid=self.sid,
+            metadata_server_url=self.metadata_server_url,
             server_url=self.endpoint)
 
     def __get_tooling_client(self):
@@ -904,11 +904,11 @@ class MavensMateClient(object):
             pass
 
         return SforceToolingClient(
-            wsdl_location, 
-            apiVersion=mm_util.SFDC_API_VERSION, 
-            environment=self.org_type, 
-            sid=self.sid, 
-            metadata_server_url=self.metadata_server_url, 
+            wsdl_location,
+            apiVersion=mm_util.SFDC_API_VERSION,
+            environment=self.org_type,
+            sid=self.sid,
+            metadata_server_url=self.metadata_server_url,
             server_url=self.endpoint)
 
     def _exception_handler(result, name=""):
